@@ -2,6 +2,8 @@
 
 **Automated setup scripts for Proxmox VE with an interactive guided installer.**
 
+> **Note:** This is a forked version maintained by [mutovkin](https://github.com/mutovkin). It is forked from [eikaramba/proxmox-setup-scripts](https://github.com/eikaramba/proxmox-setup-scripts), which itself is a fork of [jammsen/proxmox-setup-scripts](https://github.com/jammsen/proxmox-setup-scripts).
+
 This project provides a collection of scripts to automate common Proxmox VE setup tasks, with a current focus on GPU-enabled LXC containers. The modular design makes it easy to add new automation scripts for any Proxmox setup scenario.
 
 ---
@@ -13,18 +15,21 @@ This collection of scripts currently focuses on GPU-enabled LXC containers, with
 ### **GPU Support (Current Focus)**
 
 **Host Setup (Proxmox)**
+
 - Installs and configures AMD ROCm or NVIDIA CUDA drivers
 - Sets up persistent GPU device mapping using PCI paths
 - Configures udev rules for proper device permissions
 - Verifies driver installation and GPU accessibility
 
 **Container Setup (LXC)**
+
 - Creates unprivileged LXC containers with GPU passthrough
 - Installs Docker with GPU runtime support
 - Configures AMD ROCm or NVIDIA Container Toolkit
 - Tests GPU accessibility with validation containers
 
 ### **Core Features**
+
 - ✅ **Interactive Guided Installer**: Menu-driven setup with progress tracking
 - ✅ **Modular Scripts**: Easy to add new automation tasks
 - ✅ **Progress Tracking**: Resume setup where you left off
@@ -43,12 +48,13 @@ The guided installer provides an interactive menu with progress tracking and aut
 
 ```bash
 cd /root
-git clone https://github.com/jammsen/proxmox-setup-scripts.git
-cd proxmox-setup-scripts
+git clone https://github.com/mutovkin/proxmox-gpu-setup-scripts.git
+cd proxmox-gpu-setup-scripts
 ./guided-install.sh
 ```
 
 **What you get:**
+
 - 📋 Interactive menu showing all available scripts
 - ✅ Green checkmarks for completed steps  
 - 🎯 Smart defaults (just press Enter to continue)
@@ -63,8 +69,8 @@ cd proxmox-setup-scripts
 
 ```bash
 cd /root
-git clone https://github.com/jammsen/proxmox-setup-scripts.git
-cd proxmox-setup-scripts/host
+git clone https://github.com/mutovkin/proxmox-gpu-setup-scripts.git
+cd proxmox-gpu-setup-scripts
 ```
 
 #### Step 2: Install Essential Tools (Optional but Recommended)
@@ -78,18 +84,21 @@ Installs: `curl`, `git`, `gpg`, `htop`, `iperf3`, `lshw`, `mc`, `s-tui`, `unzip`
 #### Step 3: Install GPU Drivers on Host
 
 **For AMD GPUs:**
+
 ```bash
 ./003 - install-amd-drivers.sh  # Install AMD ROCm 7.1.X drivers
 ./005 - verify-amd-drivers.sh   # Verify installation
 ```
 
 **For NVIDIA GPUs:**
+
 ```bash
 ./004 - install-nvidia-drivers.sh  # Install NVIDIA CUDA and kernel drivers
 ./006 - verify-nvidia-drivers.sh   # Verify installation
 ```
 
 **For AMD Ryzen AI 300 Series iGPU (Optional):**
+
 ```bash
 ./002 - setup-igpu-vram.sh  # Allocate 96GB VRAM for integrated GPU
 ```
@@ -109,6 +118,7 @@ Creates udev rules for consistent GPU device permissions and persistent PCI-base
 ```
 
 This interactive script will:
+
 1. Prompt you to select GPU type (AMD or NVIDIA)
 2. Auto-detect available GPUs with their PCI addresses
 3. Create an Ubuntu 24.04 LXC container with GPU passthrough
@@ -124,6 +134,7 @@ This interactive script will:
 If you skipped the automatic installation, you can run it manually:
 
 **Option A: Run from Proxmox Host**
+
 ```bash
 # For NVIDIA:
 pct exec <CONTAINER_ID> -- bash /root/proxmox-setup-scripts/lxc/install-docker-and-nvidia-drivers-in-lxc.sh
@@ -133,6 +144,7 @@ pct exec <CONTAINER_ID> -- bash /root/proxmox-setup-scripts/lxc/install-docker-a
 ```
 
 **Option B: SSH into Container**
+
 ```bash
 ssh root@<CONTAINER_IP>  # Default password: testing
 cd /root/proxmox-setup-scripts/lxc
@@ -147,11 +159,13 @@ cd /root/proxmox-setup-scripts/lxc
 #### Step 7: Verify GPU Access
 
 **NVIDIA:**
+
 ```bash
 docker run --rm --gpus all nvidia/cuda:13.0.1-base-ubuntu24.04 nvidia-smi
 ```
 
 **AMD:**
+
 ```bash
 docker run --rm --name rcom-smi --device /dev/kfd --device /dev/dri -e HSA_OVERRIDE_GFX_VERSION=11.5.1 -e HSA_ENABLE_SDMA=0 --group-add video --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --ipc=host rocm/rocm-terminal bash -c "rocm-smi --showmemuse --showuse --showmeminfo all --showhw --showproductname && rocminfo | grep -i -A5 'Agent [0-9]'"
 ```
@@ -160,7 +174,7 @@ docker run --rm --name rcom-smi --device /dev/kfd --device /dev/dri -e HSA_OVERR
 
 ## 📂 Repository Structure
 
-```
+```text
 proxmox-setup-scripts/
 ├── guided-install.sh          # Interactive guided installer (START HERE!)
 │
@@ -231,7 +245,7 @@ q/quit       - Exit installer
 
 ### Example Session Output
 
-```
+```text
 ========================================
 Proxmox Setup Scripts - Guided Installer
 ========================================
@@ -301,15 +315,19 @@ Enter your choice [all]:
 ## 🎯 Use Cases
 
 ### AI/ML Workloads
+
 Run inference containers (Ollama, Stable Diffusion, etc.) with GPU acceleration in isolated LXC environments.
 
 ### Media Transcoding
+
 Use hardware-accelerated transcoding in Plex, Jellyfin, or FFmpeg containers.
 
 ### Development Environments  
+
 Create isolated GPU-enabled development containers for CUDA/ROCm programming.
 
 ### Multi-Tenant GPU Sharing
+
 Assign different GPUs to different LXC containers for isolation and resource management.
 
 ---
@@ -321,6 +339,7 @@ Assign different GPUs to different LXC containers for isolation and resource man
 Traditional GPU passthrough uses `/dev/dri/card0`, `/dev/dri/card1`, etc. These names can change between reboots depending on driver load order.
 
 **This project uses PCI paths** like `/dev/dri/by-path/pci-0000:c7:00.0-card` which:
+
 - ✅ Always point to the same physical GPU
 - ✅ Survive reboots and driver updates
 - ✅ Prevent GPU assignment conflicts
@@ -329,6 +348,7 @@ Traditional GPU passthrough uses `/dev/dri/card0`, `/dev/dri/card1`, etc. These 
 ### Unprivileged Containers
 
 All containers created by these scripts are **unprivileged** (safer than privileged containers) but still have full GPU access through:
+
 - Proper cgroup device permissions
 - Bind-mounted GPU devices
 - AppArmor profile adjustments
@@ -357,6 +377,7 @@ pct exec <CONTAINER_ID> -- ls -la /dev/kfd      # AMD
 ### Docker GPU Test Fails
 
 **NVIDIA:**
+
 ```bash
 # Check NVIDIA runtime config:
 pct exec <CONTAINER_ID> -- cat /etc/nvidia-container-runtime/config.toml | grep no-cgroups
@@ -370,6 +391,7 @@ pct exec <CONTAINER_ID> -- systemctl restart docker
 ```
 
 **AMD:**
+
 ```bash
 # Verify group membership:
 pct exec <CONTAINER_ID> -- groups root
@@ -383,6 +405,7 @@ pct exec <CONTAINER_ID> -- rocminfo
 ### Driver Issues on Host
 
 **Re-verify drivers:**
+
 ```bash
 cd /root/proxmox-setup-scripts/host
 
@@ -394,6 +417,7 @@ cd /root/proxmox-setup-scripts/host
 ```
 
 **Check kernel modules:**
+
 ```bash
 lsmod | grep nvidia  # NVIDIA
 lsmod | grep amdgpu  # AMD
@@ -436,4 +460,4 @@ This project is provided as-is for educational and automation purposes. Use at y
 
 Found a bug or have a suggestion? Please open an issue or submit a pull request on GitHub!
 
-**Repository:** [https://github.com/jammsen/proxmox-setup-scripts](https://github.com/jammsen/proxmox-setup-scripts)
+**Repository:** [https://github.com/mutovkin/proxmox-gpu-setup-scripts](https://github.com/mutovkin/proxmox-gpu-setup-scripts)
