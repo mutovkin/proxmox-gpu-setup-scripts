@@ -12,6 +12,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/../includes/colors.sh"
 
+# Load configuration
+CONFIG_FILE="${SCRIPT_DIR}/../includes/config.sh"
+if [ -f "$CONFIG_FILE" ]; then
+    # shellcheck disable=SC1091
+    source "$CONFIG_FILE"
+else
+    # Fallback/Error if config not found
+    echo -e "${YELLOW}Configuration file not found at ${CONFIG_FILE}${NC}"
+    echo -e "${YELLOW}Using default paths...${NC}"
+    SCRIPT_ROOT="$(dirname "$SCRIPT_DIR")"
+    LXC_MOUNT_POINT="/root/proxmox-gpu-setup-scripts"
+fi
+
 # Prompt for container ID
 read -r -p "Enter container ID [100]: " CONTAINER_ID
 CONTAINER_ID=${CONTAINER_ID:-100}
@@ -301,10 +314,12 @@ pct start "$CONTAINER_ID"
 sleep 5
 
 echo -e "${GREEN}>>> Mounting scripts directory into container${NC}"
-# Get the repository root directory (parent of host/)
-REPO_DIR="$(dirname "$SCRIPT_DIR")"
+# Use SCRIPT_ROOT from config, or discover if not set (fallback)
+SCRIPT_ROOT=${SCRIPT_ROOT:-"$(dirname "$SCRIPT_DIR")"}
+LXC_MOUNT_POINT=${LXC_MOUNT_POINT:-"/root/proxmox-gpu-setup-scripts"}
+
 # Add bind mount for scripts directory
-pct set "$CONTAINER_ID" -mp0 "$REPO_DIR,mp=/root/proxmox-setup-scripts"
+pct set "$CONTAINER_ID" -mp0 "$SCRIPT_ROOT,mp=$LXC_MOUNT_POINT"
 
 echo -e "${GREEN}>>> Enabling SSH root login${NC}"
 pct exec "$CONTAINER_ID" -- bash -c "sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config"
@@ -321,7 +336,7 @@ echo "GPU Type: $([ "$GPU_TYPE" == "1" ] && echo "AMD" || echo "NVIDIA")"
 echo "GPU PCI Address: $PCI_ADDRESS"
 echo "SSH Access: ssh root@$IP_ADDRESS"
 echo "Default Password: testing"
-echo "Scripts mounted at: /root/proxmox-setup-scripts"
+echo "Scripts mounted at: $LXC_MOUNT_POINT"
 echo ""
 echo -e "${YELLOW}IMPORTANT: Change the default password after first login!${NC}"
 echo ""
@@ -337,22 +352,22 @@ if [ "$GPU_TYPE" == "1" ]; then
     if [[ "$RUN_INSTALL" =~ ^[Yy]$ ]]; then
         echo ""
         echo -e "${GREEN}>>> Running AMD GPU installation script...${NC}"
-        pct exec "$CONTAINER_ID" -- bash /root/proxmox-setup-scripts/lxc/install-docker-and-amd-drivers-in-lxc.sh
+        pct exec "$CONTAINER_ID" -- bash $LXC_MOUNT_POINT/lxc/install-docker-and-amd-drivers-in-lxc.sh
         echo ""
         echo "  # You can SSH into container:"
         echo "  ssh root@$IP_ADDRESS"
-        echo "  cd /root/proxmox-setup-scripts/lxc"
+        echo "  cd $LXC_MOUNT_POINT/lxc"
         echo "  ./install-docker-and-amd-drivers-in-lxc.sh"
 
     else
         echo ""
         echo -e "${YELLOW}Installation skipped. You can run it manually later:${NC}"
         echo "  # From Proxmox host:"
-        echo "  pct exec $CONTAINER_ID -- bash /root/proxmox-setup-scripts/lxc/install-docker-and-amd-drivers-in-lxc.sh"
+        echo "  pct exec $CONTAINER_ID -- bash $LXC_MOUNT_POINT/lxc/install-docker-and-amd-drivers-in-lxc.sh"
         echo ""
         echo "  # Or SSH into container:"
         echo "  ssh root@$IP_ADDRESS"
-        echo "  cd /root/proxmox-setup-scripts/lxc"
+        echo "  cd $LXC_MOUNT_POINT/lxc"
         echo "  ./install-docker-and-amd-drivers-in-lxc.sh"
     fi
 else
@@ -366,21 +381,21 @@ else
     if [[ "$RUN_INSTALL" =~ ^[Yy]$ ]]; then
         echo ""
         echo -e "${GREEN}>>> Running NVIDIA GPU installation script...${NC}"
-        pct exec "$CONTAINER_ID" -- bash /root/proxmox-setup-scripts/lxc/install-docker-and-nvidia-drivers-in-lxc.sh
+        pct exec "$CONTAINER_ID" -- bash $LXC_MOUNT_POINT/lxc/install-docker-and-nvidia-drivers-in-lxc.sh
         echo ""
         echo "  # You can SSH into container:"
         echo "  ssh root@$IP_ADDRESS"
-        echo "  cd /root/proxmox-setup-scripts/lxc"
+        echo "  cd $LXC_MOUNT_POINT/lxc"
         echo "  ./install-docker-and-nvidia-drivers-in-lxc.sh"
     else
         echo ""
         echo -e "${YELLOW}Installation skipped. You can run it manually later:${NC}"
         echo "  # From Proxmox host:"
-        echo "  pct exec $CONTAINER_ID -- bash /root/proxmox-setup-scripts/lxc/install-docker-and-nvidia-drivers-in-lxc.sh"
+        echo "  pct exec $CONTAINER_ID -- bash $LXC_MOUNT_POINT/lxc/install-docker-and-nvidia-drivers-in-lxc.sh"
         echo ""
         echo "  # Or SSH into container:"
         echo "  ssh root@$IP_ADDRESS"
-        echo "  cd /root/proxmox-setup-scripts/lxc"
+        echo "  cd $LXC_MOUNT_POINT/lxc"
         echo "  ./install-docker-and-nvidia-drivers-in-lxc.sh"
     fi
 fi
@@ -394,7 +409,7 @@ echo "GPU Type: $([ "$GPU_TYPE" == "1" ] && echo "AMD" || echo "NVIDIA")"
 echo "GPU PCI Address: $PCI_ADDRESS"
 echo "SSH Access: ssh root@$IP_ADDRESS"
 echo "Default Password: testing"
-echo "Scripts mounted at: /root/proxmox-setup-scripts"
+echo "Scripts mounted at: $LXC_MOUNT_POINT"
 echo ""
 echo -e "${YELLOW}IMPORTANT: Change the default password after first login!${NC}"
 echo ""

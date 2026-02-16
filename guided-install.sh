@@ -12,6 +12,30 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=includes/colors.sh
 source "${SCRIPT_DIR}/includes/colors.sh"
 
+# Check for configuration file
+CONFIG_FILE="${SCRIPT_DIR}/includes/config.sh"
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo -e "${YELLOW}Configuration file not found.${NC}"
+    echo -e "${YELLOW}Running initialization script...${NC}"
+    if [ -f "${SCRIPT_DIR}/init-config.sh" ]; then
+        bash "${SCRIPT_DIR}/init-config.sh"
+        # Source the newly created config
+        if [ -f "$CONFIG_FILE" ]; then
+            # shellcheck source=includes/config.sh
+            source "$CONFIG_FILE"
+        else
+            echo -e "${RED}Error: Failed to create configuration file.${NC}"
+            exit 1
+        fi
+    else
+        echo -e "${RED}Error: init-config.sh not found.${NC}"
+        exit 1
+    fi
+else
+    # shellcheck source=includes/config.sh
+    source "$CONFIG_FILE"
+fi
+
 # Progress file to track completed steps
 PROGRESS_FILE="${SCRIPT_DIR}/.install-progress"
 
@@ -42,10 +66,10 @@ extract_script_metadata() {
 
 # Function to discover and load all scripts
 discover_scripts() {
-    # Find all scripts in host directory
+    # Find all scripts in host directory using SCRIPT_ROOT
     while IFS= read -r script_path; do
         extract_script_metadata "$script_path"
-    done < <(find "${SCRIPT_DIR}/host" -maxdepth 1 -name "[0-9][0-9][0-9] - *.sh" -type f | sort)
+    done < <(find "${SCRIPT_ROOT}/host" -maxdepth 1 -name "[0-9][0-9][0-9] - *.sh" -type f | sort)
     
     # Sort script numbers (suppress shellcheck warning - we need numeric sort)
     # shellcheck disable=SC2207
@@ -183,7 +207,7 @@ get_scripts_in_range() {
     for num in "${SCRIPT_NUMS[@]}"; do
         if [ "$num" -ge "$start" ] && [ "$num" -le "$end" ]; then
             # Find the actual script file
-            find "${SCRIPT_DIR}/host" -maxdepth 1 -name "${num} - *.sh" -type f
+            find "${SCRIPT_ROOT}/host" -maxdepth 1 -name "${num} - *.sh" -type f
         fi
     done | sort
 }
@@ -347,7 +371,7 @@ while true; do
             
         [0-9][0-9][0-9])
             # Run specific script
-            script_path=$(find "${SCRIPT_DIR}/host" -maxdepth 1 -name "${choice} - *.sh" -type f)
+            script_path=$(find "${SCRIPT_ROOT}/host" -maxdepth 1 -name "${choice} - *.sh" -type f)
             
             if [ -z "$script_path" ]; then
                 echo -e "${RED}Script $choice not found!${NC}"

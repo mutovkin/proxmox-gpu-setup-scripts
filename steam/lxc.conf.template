@@ -18,7 +18,7 @@ cores: 8
 features: nesting=1
 hostname: steam
 memory: 8192
-mp0: /Users/surge/dev/proxmox-gpu-setup-scripts,mp=/root/proxmox-gpu-setup-scripts
+mp0: {{SCRIPT_ROOT}},mp={{LXC_MOUNT_POINT}}
 net0: name=eth0,bridge=vmbr0,firewall=1,gw=192.168.178.1,hwaddr=BC:24:11:C1:29:5F,ip=192.168.178.211/24,type=veth
 ostype: ubuntu
 rootfs: local-lvm:vm-111-disk-0,size=160G

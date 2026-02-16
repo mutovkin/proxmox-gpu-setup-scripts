@@ -73,15 +73,24 @@ git clone https://github.com/mutovkin/proxmox-gpu-setup-scripts.git
 cd proxmox-gpu-setup-scripts
 ```
 
-#### Step 2: Install Essential Tools (Optional but Recommended)
+#### Step 2: Initialize Configuration
 
 ```bash
+./init-config.sh
+```
+
+This detects your installation path and generates `includes/config.sh`.
+
+#### Step 3: Install Essential Tools (Optional but Recommended)
+
+```bash
+cd host
 ./001 - install-tools.sh
 ```
 
 Installs: `curl`, `git`, `gpg`, `htop`, `iperf3`, `lshw`, `mc`, `s-tui`, `unzip`, `wget`, plus power management tools.
 
-#### Step 3: Install GPU Drivers on Host
+#### Step 4: Install GPU Drivers on Host
 
 **For AMD GPUs:**
 
@@ -123,7 +132,7 @@ This interactive script will:
 2. Auto-detect available GPUs with their PCI addresses
 3. Create an Ubuntu 24.04 LXC container with GPU passthrough
 4. Configure persistent PCI-based device mapping
-5. Mount the scripts directory at `/root/proxmox-setup-scripts` inside the container
+5. Mount the scripts directory at `/root/proxmox-gpu-setup-scripts` inside the container
 6. Enable SSH access (default password: `testing`)
 7. **Ask if you want to automatically install Docker and GPU drivers**
 
@@ -137,17 +146,17 @@ If you skipped the automatic installation, you can run it manually:
 
 ```bash
 # For NVIDIA:
-pct exec <CONTAINER_ID> -- bash /root/proxmox-setup-scripts/lxc/install-docker-and-nvidia-drivers-in-lxc.sh
+pct exec <CONTAINER_ID> -- bash /root/proxmox-gpu-setup-scripts/lxc/install-docker-and-nvidia-drivers-in-lxc.sh
 
 # For AMD:
-pct exec <CONTAINER_ID> -- bash /root/proxmox-setup-scripts/lxc/install-docker-and-amd-drivers-in-lxc.sh
+pct exec <CONTAINER_ID> -- bash /root/proxmox-gpu-setup-scripts/lxc/install-docker-and-amd-drivers-in-lxc.sh
 ```
 
 **Option B: SSH into Container**
 
 ```bash
 ssh root@<CONTAINER_IP>  # Default password: testing
-cd /root/proxmox-setup-scripts/lxc
+cd /root/proxmox-gpu-setup-scripts/lxc
 
 # For NVIDIA:
 ./install-docker-and-nvidia-drivers-in-lxc.sh
@@ -308,7 +317,7 @@ Enter your choice [all]:
 | `install-docker-and-nvidia-drivers-in-lxc.sh` | Installs Docker, NVIDIA libraries, and NVIDIA Container Toolkit | NVIDIA |
 | `install-docker-and-amd-drivers-in-lxc.sh` | Installs Docker and AMD ROCm libraries | AMD |
 
-**Note:** These scripts are automatically available at `/root/proxmox-setup-scripts/lxc/` inside containers created with script 031.
+**Note:** These scripts are automatically available at `/root/proxmox-gpu-setup-scripts/lxc/` inside containers created with script 031.
 
 ---
 
@@ -407,7 +416,7 @@ pct exec <CONTAINER_ID> -- rocminfo
 **Re-verify drivers:**
 
 ```bash
-cd /root/proxmox-setup-scripts/host
+cd /root/proxmox-gpu-setup-scripts/host
 
 # NVIDIA:
 ./006 - verify-nvidia-drivers.sh
@@ -427,12 +436,12 @@ lsmod | grep amdgpu  # AMD
 
 ## 🔄 Updating Scripts
 
-All containers have the scripts directory mounted from the host at `/root/proxmox-setup-scripts`.
+All containers have the scripts directory mounted from the host at `/root/proxmox-gpu-setup-scripts`.
 
 To update scripts in **all containers at once**:
 
 ```bash
-cd /root/proxmox-setup-scripts
+cd /root/proxmox-gpu-setup-scripts
 git pull
 # All containers immediately see the updated scripts!
 ```
