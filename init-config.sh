@@ -31,18 +31,36 @@ echo -e "${YELLOW}Detected:${NC} $SCRIPT_DIR"
 echo ""
 
 # Prompt for iGPU VRAM size
-IGPU_VRAM_GB="16"
+IGPU_VRAM_GB="16" # Fallback default
+
+# Try to auto-detect VRAM
+DETECTED_VRAM_BYTES=""
+if [ -f "/sys/class/drm/card0/device/mem_info_vram_total" ]; then
+    DETECTED_VRAM_BYTES=$(cat /sys/class/drm/card0/device/mem_info_vram_total)
+elif [ -f "/sys/class/drm/card1/device/mem_info_vram_total" ]; then
+    DETECTED_VRAM_BYTES=$(cat /sys/class/drm/card1/device/mem_info_vram_total)
+fi
+
+if [ -n "$DETECTED_VRAM_BYTES" ]; then
+    # Convert bytes to GB (Bytes / 1024^3)
+    DETECTED_VRAM_GB=$((DETECTED_VRAM_BYTES / 1073741824))
+    echo -e "${GREEN}Detected iGPU VRAM: ${DETECTED_VRAM_GB} GB${NC}"
+    IGPU_VRAM_GB="$DETECTED_VRAM_GB"
+fi
+
 while true; do
-    echo -e "Select iGPU VRAM allocation (must be supported by your hardware):"
-    echo -e "  1) 16 GB (Default - Strix Point/Halo base)"
-    echo -e "  2) 32 GB (Strix Point high-end)"
+    echo -e "Select iGPU VRAM allocation (detected: ${GREEN}${IGPU_VRAM_GB} GB${NC}):"
+    echo -e "  1) 16 GB"
+    echo -e "  2) 32 GB"
     echo -e "  3) 48 GB"
     echo -e "  4) 64 GB"
     echo -e "  5) 80 GB"
-    echo -e "  6) 96 GB (Strix Halo max)"
+    echo -e "  6) 96 GB"
     echo -e "  7) Custom amount"
-    read -r -p "Enter choice [1]: " vram_choice
-    vram_choice=${vram_choice:-1}
+    echo -e "  8) Use detected/default (${IGPU_VRAM_GB} GB)"
+    
+    read -r -p "Enter choice [8]: " vram_choice
+    vram_choice=${vram_choice:-8}
     
     case "$vram_choice" in
         1) IGPU_VRAM_GB="16"; break ;;
@@ -60,6 +78,7 @@ while true; do
                 echo -e "${RED}Invalid number.${NC}"
             fi
             ;;
+        8) break ;; # Keep current IGPU_VRAM_GB value
         *) echo -e "${RED}Invalid choice.${NC}" ;;
     esac
 done
