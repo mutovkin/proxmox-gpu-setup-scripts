@@ -30,6 +30,140 @@ echo -e "Detecting installation path..."
 echo -e "${YELLOW}Detected:${NC} $SCRIPT_DIR"
 echo ""
 
+# GPU Detection
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}GPU Detection${NC}"
+echo -e "${GREEN}========================================${NC}"
+echo ""
+
+detect_gpu() {
+    echo -e "${YELLOW}Detecting GPU...${NC}"
+    
+    if ! command -v lspci &> /dev/null; then
+        echo -e "${RED}lspci not found. Install pciutils.${NC}"
+        return 1
+    fi
+
+    # Detect Vendor
+    local gpu_info
+    gpu_info=$(lspci -nn | grep -i "VGA\|3D\|Display" || true)
+    
+    if echo "$gpu_info" | grep -qi "NVIDIA"; then
+        echo "nvidia"
+        return 0
+    elif echo "$gpu_info" | grep -qi "AMD"; then
+        echo "amd"
+        return 0
+    elif echo "$gpu_info" | grep -qi "Advanced Micro Devices"; then
+        echo "amd"
+        return 0
+    elif echo "$gpu_info" | grep -qi "Intel"; then
+        echo "intel"
+        return 0
+    fi
+    
+    return 1
+}
+
+detect_gpu_target() {
+    local vendor=$1
+    if [ "$vendor" != "amd" ]; then
+        return 1
+    fi
+    
+    local gpu_info
+    gpu_info=$(lspci -nn | grep -i "VGA\|3D\|Display" || true)
+    
+    # Heuristics for Strix Point vs Strix Halo based on names if available
+    # User's lspci shows: "Strix [Radeon 880M / 890M]" -> Strix Point (gfx1150)
+    if echo "$gpu_info" | grep -qiE "Radeon.*890M|Radeon.*880M"; then
+        echo "gfx1150"
+    elif echo "$gpu_info" | grep -qi "Strix Point"; then
+        echo "gfx1150"
+    elif echo "$gpu_info" | grep -qi "Strix Halo"; then
+        echo "gfx1151"
+    elif echo "$gpu_info" | grep -qi "Strix"; then
+        # Fallback: If it just says "Strix" without "Halo", it's likely Strix Point
+        echo "gfx1150"
+    else
+        # Default fallback for untagged/unknown AMD GPUs in this context
+        # We assume the user is using this script for the intended hardware
+        echo "gfx1151"
+    fi
+}
+
+DETECTED_VENDOR=$(detect_gpu)
+DETECTED_TARGET=""
+
+if [ -n "$DETECTED_VENDOR" ]; then
+    echo -e "${GREEN}Detected GPU Vendor: ${DETECTED_VENDOR}${NC}"
+    if [ "$DETECTED_VENDOR" == "amd" ]; then
+        DETECTED_TARGET=$(detect_gpu_target "$DETECTED_VENDOR")
+        echo -e "${GREEN}Detected AMD Target: ${DETECTED_TARGET}${NC}"
+    fi
+else
+    echo -e "${YELLOW}Could not detect GPU vendor.${NC}"
+fi
+
+# Select Vendor
+echo ""
+echo "Select GPU Vendor:"
+echo "  1) AMD"
+echo "  2) NVIDIA"
+echo "  3) Intel (Experimental)"
+
+default_vendor_choice=1
+if [ "$DETECTED_VENDOR" == "nvidia" ]; then default_vendor_choice=2; fi
+if [ "$DETECTED_VENDOR" == "intel" ]; then default_vendor_choice=3; fi
+
+read -r -p "Enter choice [${default_vendor_choice}]: " vendor_choice
+vendor_choice=${vendor_choice:-$default_vendor_choice}
+
+case "$vendor_choice" in
+    1) GPU_VENDOR="amd" ;;
+    2) GPU_VENDOR="nvidia" ;;
+    3) GPU_VENDOR="intel" ;;
+    *) GPU_VENDOR="amd" ;;
+esac
+
+# Select Target (if AMD)
+GPU_TARGET=""
+if [ "$GPU_VENDOR" == "amd" ]; then
+    echo ""
+    echo "Select AMD GPU Target Architecture:"
+    echo "  1) gfx1151 (Strix Halo) - Recommended for Strix Halo"
+    echo "  2) gfx1150 (Strix Point) - Recommended for Strix Point"
+    echo "  3) gfx1100 (Ratna/ RX 7000 series)"
+    echo "  4) gfx1103 (Phoenix/Hawk Point - 780M)"
+    echo "  5) gfx1030 (Navi 21 / RX 6000 series)"
+    echo "  6) Manual Entry"
+    
+    default_target_choice=1
+    if [ "$DETECTED_TARGET" == "gfx1150" ]; then default_target_choice=2; fi
+    
+    read -r -p "Enter choice [${default_target_choice}]: " target_choice
+    target_choice=${target_choice:-$default_target_choice}
+    
+    case "$target_choice" in
+        1) GPU_TARGET="gfx1151" ;;
+        2) GPU_TARGET="gfx1150" ;;
+        3) GPU_TARGET="gfx1100" ;;
+        4) GPU_TARGET="gfx1103" ;;
+        5) GPU_TARGET="gfx1030" ;;
+        6) 
+            read -r -p "Enter manual GFX version (e.g., gfx1151): " manual_target
+            GPU_TARGET="$manual_target"
+            ;;
+        *) GPU_TARGET="gfx1151" ;;
+    esac
+fi
+
+echo -e "Selected Vendor: ${GREEN}${GPU_VENDOR}${NC}"
+if [ -n "$GPU_TARGET" ]; then
+    echo -e "Selected Target: ${GREEN}${GPU_TARGET}${NC}"
+fi
+echo ""
+
 # Prompt for iGPU VRAM size
 IGPU_VRAM_GB="16" # Fallback default
 
@@ -288,6 +422,11 @@ LXC_MOUNT_POINT="/root/proxmox-gpu-setup-scripts"
 # Used by host/002 - setup-igpu-vram.sh
 IGPU_VRAM_GB="${IGPU_VRAM_GB}"
 
+# GPU Configuration
+# Automatically detected/selected
+GPU_VENDOR="${GPU_VENDOR}"
+GPU_TARGET="${GPU_TARGET}"
+
 # ROCm Configuration
 # Automatically detected/selected on $(date)
 ROCM_VERSION="${ROCM_VERSION}"
@@ -299,6 +438,12 @@ echo -e "${GREEN}✓ Configuration file created.${NC}"
 echo ""
 echo -e "Installation path set to: ${YELLOW}$SCRIPT_DIR${NC}"
 echo -e "iGPU VRAM set to: ${YELLOW}${IGPU_VRAM_GB} GB${NC}"
+if [ -n "$GPU_VENDOR" ]; then
+    echo -e "GPU Vendor: ${YELLOW}${GPU_VENDOR}${NC}"
+fi
+if [ -n "$GPU_TARGET" ]; then
+    echo -e "GPU Target: ${YELLOW}${GPU_TARGET}${NC}"
+fi
 echo -e "ROCm Version: ${YELLOW}${ROCM_VERSION}${NC} (${ROCM_UBUNTU_CODENAME})"
 echo -e "You can now run ${GREEN}./guided-install.sh${NC} or individual scripts."
 echo ""

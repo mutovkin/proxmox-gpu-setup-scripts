@@ -20,7 +20,19 @@ fi
 # Configuration
 ROCM_VERSION="${ROCM_VERSION:-7.2}" # Default/Fallback
 ROCM_UBUNTU_CODENAME="${ROCM_UBUNTU_CODENAME:-noble}"
-GPU_TARGET="gfx1151"  # AMD Strix Halo
+GPU_TARGET="${GPU_TARGET:-gfx1151}"  # Default to Strix Halo if not set
+
+# Check GPU Vendor
+if [ "${GPU_VENDOR}" == "nvidia" ]; then
+    echo -e "${RED}ERROR: This script is for AMD ROCm installation.${NC}"
+    echo -e "${YELLOW}Detected GPU Vendor is NVIDIA.${NC}"
+    echo -e "${YELLOW}Please run 'install-docker-and-nvidia-drivers-in-lxc.sh' instead.${NC}"
+    read -r -p "Continue anyway (not recommended)? [y/N]: " CONTINUE
+    CONTINUE=${CONTINUE:-N}
+    if [[ ! "$CONTINUE" =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
+fi
 LLAMA_CPP_DIR="/opt/llama.cpp"
 ROCWMMA_ENABLED=true  # Enable rocWMMA for improved performance
 
@@ -29,7 +41,7 @@ echo -e "${GREEN}ROCm + llama.cpp Setup for LXC${NC}"
 echo -e "${GREEN}(No Docker - Native Installation)${NC}"
 echo -e "${GREEN}==========================================${NC}"
 echo ""
-echo -e "${YELLOW}Target GPU: AMD Strix Halo (${GPU_TARGET})${NC}"
+echo -e "${YELLOW}Target GPU: AMD (${GPU_TARGET})${NC}"
 echo -e "${YELLOW}ROCm Version: ${ROCM_VERSION}${NC}"
 echo -e "${YELLOW}Ubuntu Codename: ${ROCM_UBUNTU_CODENAME}${NC}"
 echo -e "${YELLOW}rocWMMA: $([ "$ROCWMMA_ENABLED" = true ] && echo "Enabled" || echo "Disabled")${NC}"
@@ -146,15 +158,26 @@ apt install -y nvtop radeontop || true
 usermod -a -G render,video root
 
 # Set up ROCm environment variables
+# Set up ROCm environment variables
 echo -e "${GREEN}>>> Setting up ROCm environment...${NC}"
-cat > /etc/profile.d/rocm.sh << 'EOF'
+
+# Calculate HSA_OVERRIDE_GFX_VERSION from GPU_TARGET (e.g., gfx1151 -> 11.5.1)
+HSA_OVERRIDE_VER=""
+if [[ "$GPU_TARGET" =~ gfx([0-9]{2})([0-9])([0-9]) ]]; then
+    HSA_MAJOR="${BASH_REMATCH[1]}"
+    HSA_MINOR="${BASH_REMATCH[2]}"
+    HSA_STEP="${BASH_REMATCH[3]}"
+    HSA_OVERRIDE_VER="${HSA_MAJOR}.${HSA_MINOR}.${HSA_STEP}"
+fi
+
+cat > /etc/profile.d/rocm.sh << EOF
 export ROCM_PATH=/opt/rocm
 export HIP_PATH=/opt/rocm
 export HIP_CLANG_PATH=/opt/rocm/llvm/bin
 export HIP_DEVICE_LIB_PATH=/opt/rocm/amdgcn/bitcode
-export PATH="/opt/rocm/bin:/opt/rocm/llvm/bin:${PATH}"
-export LD_LIBRARY_PATH="/opt/rocm/lib:${LD_LIBRARY_PATH}"
-export HSA_OVERRIDE_GFX_VERSION=11.5.1
+export PATH="/opt/rocm/bin:/opt/rocm/llvm/bin:\${PATH}"
+export LD_LIBRARY_PATH="/opt/rocm/lib:\${LD_LIBRARY_PATH}"
+$( [ -n "$HSA_OVERRIDE_VER" ] && echo "export HSA_OVERRIDE_GFX_VERSION=$HSA_OVERRIDE_VER" )
 export HSA_ENABLE_SDMA=0
 export ROCBLAS_USE_HIPBLASLT=1
 EOF
@@ -162,16 +185,16 @@ EOF
 chmod +x /etc/profile.d/rocm.sh
 
 # Also add to root's bashrc
-cat >> /root/.bashrc << 'EOF'
+cat >> /root/.bashrc << EOF
 
 # ROCm Environment Variables
 export ROCM_PATH=/opt/rocm
 export HIP_PATH=/opt/rocm
 export HIP_CLANG_PATH=/opt/rocm/llvm/bin
 export HIP_DEVICE_LIB_PATH=/opt/rocm/amdgcn/bitcode
-export PATH="/opt/rocm/bin:/opt/rocm/llvm/bin:${PATH}"
-export LD_LIBRARY_PATH="/opt/rocm/lib:${LD_LIBRARY_PATH}"
-export HSA_OVERRIDE_GFX_VERSION=11.5.1
+export PATH="/opt/rocm/bin:/opt/rocm/llvm/bin:\${PATH}"
+export LD_LIBRARY_PATH="/opt/rocm/lib:\${LD_LIBRARY_PATH}"
+$( [ -n "$HSA_OVERRIDE_VER" ] && echo "export HSA_OVERRIDE_GFX_VERSION=$HSA_OVERRIDE_VER" )
 export HSA_ENABLE_SDMA=0
 export ROCBLAS_USE_HIPBLASLT=1
 EOF
