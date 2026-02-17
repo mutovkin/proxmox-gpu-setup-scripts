@@ -7,3 +7,6 @@
 
 # Log files
 *.log
+
+# Configuration
+includes/config.sh
