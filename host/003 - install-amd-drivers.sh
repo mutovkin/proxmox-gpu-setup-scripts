@@ -2,6 +2,15 @@
 # SCRIPT_DESC: Install AMD ROCm 7.2.X drivers
 # SCRIPT_DETECT: lsmod | grep -q amdgpu
 
+# Source config
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../includes/config.sh"
+
+# Fallback defaults if config is missing (backward compatibility)
+ROCM_VERSION="${ROCM_VERSION:-7.2}"
+ROCM_UBUNTU_CODENAME="${ROCM_UBUNTU_CODENAME:-noble}"
+
 # if uninstall needed
 # # Purge existing packages to resolve version conflicts (e.g. 7.2.0 vs 7.1.1)
 # apt purge -y "rocm-*" "amdgpu-*" "hsakmt-*" "rock-dkms" "rocm-core"
@@ -14,8 +23,8 @@ wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | \
 gpg --dearmor | tee /etc/apt/keyrings/rocm.gpg > /dev/null
 
 tee /etc/apt/sources.list.d/rocm.list << EOF
-deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/7.2 noble main
-deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/graphics/7.2/ubuntu noble main
+deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/${ROCM_VERSION} ${ROCM_UBUNTU_CODENAME} main
+deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/graphics/${ROCM_VERSION}/ubuntu ${ROCM_UBUNTU_CODENAME} main
 EOF
 
 tee /etc/apt/preferences.d/rocm-pin-600 << EOF

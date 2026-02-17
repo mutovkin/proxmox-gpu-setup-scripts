@@ -95,8 +95,19 @@ curl -L https://raw.githubusercontent.com/docker/cli/master/contrib/completion/b
     -o /etc/bash_completion.d/docker-compose
 
 echo ""
+# Source config if available
+if [ -f "${SCRIPT_DIR}/../includes/config.sh" ]; then
+    # shellcheck disable=SC1090
+    source "${SCRIPT_DIR}/../includes/config.sh"
+fi
+
+# Fallback defaults if config is missing
+ROCM_VERSION="${ROCM_VERSION:-7.2}" # Defaulting to what was here before, or should we match host?
+ROCM_UBUNTU_CODENAME="${ROCM_UBUNTU_CODENAME:-noble}"
+
 echo -e "${GREEN}==========================================${NC}"
 echo -e "${GREEN}Installing AMD ROCm Libraries${NC}"
+echo -e "${GREEN}Target Version: ${ROCM_VERSION} (${ROCM_UBUNTU_CODENAME})${NC}"
 echo -e "${GREEN}==========================================${NC}"
 echo ""
 
@@ -112,10 +123,10 @@ sudo mkdir --parents --mode=0755 /etc/apt/keyrings
 wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | \
     gpg --dearmor | sudo tee /etc/apt/keyrings/rocm.gpg > /dev/null
 
-# Add ROCm 7.1.0 repository (Noble/24.04)
+# Add ROCm repository
 sudo tee /etc/apt/sources.list.d/rocm.list << EOF
-deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/7.1.1 noble main
-deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/graphics/7.1.1/ubuntu noble main
+deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/${ROCM_VERSION} ${ROCM_UBUNTU_CODENAME} main
+deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/graphics/${ROCM_VERSION}/ubuntu ${ROCM_UBUNTU_CODENAME} main
 EOF
 
 sudo tee /etc/apt/preferences.d/rocm-pin-600 << EOF

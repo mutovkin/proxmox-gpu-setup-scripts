@@ -11,8 +11,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/../includes/colors.sh"
 
+# Source config if available
+if [ -f "${SCRIPT_DIR}/../includes/config.sh" ]; then
+    # shellcheck disable=SC1090
+    source "${SCRIPT_DIR}/../includes/config.sh"
+fi
+
 # Configuration
-ROCM_VERSION="7.2"
+ROCM_VERSION="${ROCM_VERSION:-7.2}" # Default/Fallback
+ROCM_UBUNTU_CODENAME="${ROCM_UBUNTU_CODENAME:-noble}"
 GPU_TARGET="gfx1151"  # AMD Strix Halo
 LLAMA_CPP_DIR="/opt/llama.cpp"
 ROCWMMA_ENABLED=true  # Enable rocWMMA for improved performance
@@ -24,6 +31,7 @@ echo -e "${GREEN}==========================================${NC}"
 echo ""
 echo -e "${YELLOW}Target GPU: AMD Strix Halo (${GPU_TARGET})${NC}"
 echo -e "${YELLOW}ROCm Version: ${ROCM_VERSION}${NC}"
+echo -e "${YELLOW}Ubuntu Codename: ${ROCM_UBUNTU_CODENAME}${NC}"
 echo -e "${YELLOW}rocWMMA: $([ "$ROCWMMA_ENABLED" = true ] && echo "Enabled" || echo "Disabled")${NC}"
 echo ""
 echo -e "${YELLOW}IMPORTANT: Make sure AMD drivers are installed on the Proxmox HOST first!${NC}"
@@ -99,8 +107,8 @@ wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | \
 
 # Add ROCm repository (for Ubuntu 24.04 Noble)
 sudo tee /etc/apt/sources.list.d/rocm.list << EOF
-deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/${ROCM_VERSION} noble main
-deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/graphics/${ROCM_VERSION}/ubuntu noble main
+deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/${ROCM_VERSION} ${ROCM_UBUNTU_CODENAME} main
+deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/graphics/${ROCM_VERSION}/ubuntu ${ROCM_UBUNTU_CODENAME} main
 EOF
 
 sudo tee /etc/apt/preferences.d/rocm-pin-600 << EOF
